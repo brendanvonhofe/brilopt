@@ -3,12 +3,12 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    optimize::{dead_store_elim, dead_variable_elim},
+    optimize::{dead_store_elim, dead_variable_elim, local_value_numbering},
     parse::basic_blocks,
     util::graphviz,
 };
 
-const DEBUG_FILEPATH: &str = "../../benchmarks/core/fib2seven.json";
+const DEBUG_FILEPATH: &str = "/Users/bvonhofe/Desktop/bril/bril-rs/brilopt/test/opt/commute.json";
 
 fn main() {
     let mut args = std::env::args();
@@ -34,7 +34,17 @@ fn main() {
             opt_prog.functions = opt_prog
                 .functions
                 .iter()
-                .map(|func| dead_variable_elim(func))
+                .map(|func| Function {
+                    args: func.args.clone(),
+                    instrs: basic_blocks(&func)
+                        .iter()
+                        .flat_map(|block| local_value_numbering(block))
+                        .collect(),
+                    name: func.name.clone(),
+                    pos: func.pos.clone(),
+                    return_type: func.return_type.clone(),
+                })
+                .map(|func| dead_variable_elim(&func))
                 .map(|func| Function {
                     args: func.args.clone(),
                     instrs: basic_blocks(&func)
@@ -47,14 +57,41 @@ fn main() {
                 })
                 .collect();
 
-            println!("[BEFORE OPTIMIZATIONS] {}", &prog);
-            println!("[AFTER] {}", &opt_prog);
+            println!("[original] {}\n[optimized] {}", &prog, &opt_prog);
         }
         _ => {
             println!("[DEBUG MODE] Reading program from {}\n", DEBUG_FILEPATH);
             let debug_file = File::open(DEBUG_FILEPATH).unwrap();
             let prog = load_program_from_read(debug_file);
-            println!("{}", &prog);
+
+            let mut opt_prog = prog.clone();
+            opt_prog.functions = opt_prog
+                .functions
+                .iter()
+                .map(|func| Function {
+                    args: func.args.clone(),
+                    instrs: basic_blocks(&func)
+                        .iter()
+                        .flat_map(|block| local_value_numbering(block))
+                        .collect(),
+                    name: func.name.clone(),
+                    pos: func.pos.clone(),
+                    return_type: func.return_type.clone(),
+                })
+                .map(|func| dead_variable_elim(&func))
+                .map(|func| Function {
+                    args: func.args.clone(),
+                    instrs: basic_blocks(&func)
+                        .iter()
+                        .flat_map(|block| dead_store_elim(block))
+                        .collect(),
+                    name: func.name.clone(),
+                    pos: func.pos.clone(),
+                    return_type: func.return_type.clone(),
+                })
+                .collect();
+
+            println!("[original] {}\n[optimized] {}", &prog, &opt_prog);
         }
     }
 }

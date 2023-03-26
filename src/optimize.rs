@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bril_rs::{Code, Function, Instruction};
 
+use crate::lvn::LVN;
 use crate::parse::BasicBlock;
 
 pub fn dead_variable_elim(f: &Function) -> Function {
@@ -88,4 +89,14 @@ pub fn dead_store_elim(b: &BasicBlock) -> BasicBlock {
         last = block;
     }
     return last;
+}
+
+pub fn local_value_numbering(block: &BasicBlock) -> BasicBlock {
+    let mut lvn = LVN::new();
+
+    return block
+        .iter()
+        .enumerate()
+        .map(|(i, instr)| -> Code { lvn.process_instr(i, instr, block) })
+        .collect();
 }
