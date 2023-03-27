@@ -1,0 +1,19 @@
+[original] @main {
+  v1: int = const 4;
+  v2: int = const 0;
+  mul1: int = mul v1 v2;
+  add1: int = add v1 v2;
+  v2: int = const 3;
+  print mul1;
+  print add1;
+}
+
+[optimized] @main {
+  v1: int = const 4;
+  lvn.1: int = const 0;
+  mul1: int = mul v1 lvn.1;
+  add1: int = add v1 lvn.1;
+  print mul1;
+  print add1;
+}
+

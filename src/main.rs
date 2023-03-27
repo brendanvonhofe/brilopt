@@ -3,7 +3,7 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    optimize::{dead_store_elim, dead_variable_elim, local_value_numbering},
+    optimize::{dead_store_elim, dead_variable_elim, lvn_block},
     parse::basic_blocks,
     util::graphviz,
 };
@@ -38,7 +38,7 @@ fn main() {
                     args: func.args.clone(),
                     instrs: basic_blocks(&func)
                         .iter()
-                        .flat_map(|block| local_value_numbering(block))
+                        .flat_map(|block| lvn_block(block))
                         .collect(),
                     name: func.name.clone(),
                     pos: func.pos.clone(),
@@ -72,7 +72,7 @@ fn main() {
                     args: func.args.clone(),
                     instrs: basic_blocks(&func)
                         .iter()
-                        .flat_map(|block| local_value_numbering(block))
+                        .flat_map(|block| lvn_block(block))
                         .collect(),
                     name: func.name.clone(),
                     pos: func.pos.clone(),

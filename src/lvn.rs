@@ -1,193 +1,210 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use bril_rs::{Code, ConstOps, Instruction, Literal, ValueOps};
+use bril_rs::{Code, Instruction, Literal, ValueOps};
 
 use crate::parse::BasicBlock;
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum OpType {
-    Const(ConstOps),
-    Value(ValueOps),
-}
-
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub enum LVNValue {
     Constant(Literal),
-    ValueOp(OpType, Option<usize>, Option<usize>),
+    ValueBinaryOp(ValueOps, usize, usize),
+    ValueUnaryOp(ValueOps, usize),
 }
 
 pub struct LVN {
-    table: HashMap<LVNValue, (usize, String)>,
-    number_map: HashMap<usize, LVNValue>,
-    env: HashMap<Option<String>, usize>,
+    next: usize,
+    var2num: HashMap<String, usize>, // the value of variables, multiple variables can have same value
+    val2num: HashMap<LVNValue, usize>,
+    num2var: HashMap<usize, String>,
+    // num2const: HashMap<usize, Literal>,
 }
 
 impl LVN {
     pub fn new() -> LVN {
+        // LVN table: Number | Value | Variable
         LVN {
-            table: HashMap::new(),
-            number_map: HashMap::new(),
-            env: HashMap::new(),
+            next: 0,
+            val2num: HashMap::new(),
+            num2var: HashMap::new(),
+            var2num: HashMap::new(),
+            // num2const: HashMap::new(),
         }
     }
 
-    fn will_be_overwritten(dst: &str, start: usize, block: &BasicBlock) -> bool {
-        for i in start + 1..block.len() {
-            if let Code::Instruction(Instruction::Constant { dest, .. })
-            | Code::Instruction(Instruction::Value { dest, .. }) = &block[i]
-            {
-                if dst == dest {
-                    return true;
-                }
+    // check for variables that are overwritten
+    pub fn last_writes(block: &BasicBlock) -> Vec<bool> {
+        let ret = block
+            .iter()
+            .rev()
+            .scan(
+                HashSet::new(),
+                |written_to: &mut HashSet<&String>, instr| {
+                    let mut ret = false;
+                    if let Code::Instruction(Instruction::Value { dest, .. })
+                    | Code::Instruction(Instruction::Constant { dest, .. }) = instr
+                    {
+                        if !written_to.contains(&dest) {
+                            ret = true;
+                        }
+                        written_to.insert(dest);
+                    }
+                    return Some(ret);
+                },
+            )
+            .collect::<Vec<bool>>()
+            .into_iter()
+            .rev()
+            .collect();
+        return ret;
+    }
+
+    pub fn register_var(&mut self, dest: &String, num: usize, last_write: bool) -> String {
+        let var: String;
+        if last_write {
+            var = dest.clone()
+        } else {
+            var = format!("lvn.{}", num);
+        }
+        self.num2var.insert(num, var.clone());
+        return var;
+    }
+
+    pub fn extend_env(&mut self, var: &String) -> usize {
+        let num = self.next;
+        self.next += 1;
+        self.var2num.insert(var.clone(), num);
+        return num;
+    }
+
+    pub fn read_first(&mut self, block: &BasicBlock) -> HashSet<String> {
+        let mut read: HashSet<String> = HashSet::new();
+        let mut written: HashSet<String> = HashSet::new();
+        for instr in block {
+            if let Code::Instruction(Instruction::Value { args, dest, .. }) = instr {
+                read.extend(
+                    args.clone()
+                        .into_iter()
+                        .filter(|arg| !written.contains(arg)),
+                );
+                written.insert(dest.clone());
+            }
+            if let Code::Instruction(Instruction::Constant { dest, .. }) = instr {
+                written.insert(dest.clone());
             }
         }
-        return false;
+        return read;
     }
 
-    fn replace_args(&self, args: &Vec<String>, start: usize, block: &BasicBlock) -> Vec<String> {
-        args.iter()
-            .map(|a| {
-                let arg = Self::check_dest(a, start, block);
-                // dbg!(&arg, &self.env);
-
-                match self.env.get(&Some(arg.clone())) {
-                    Some(idx) => {
-                        let val = self.number_map.get(idx).unwrap();
-                        let (_, var) = self.table.get(val).unwrap();
-                        // dbg!(var);
-                        return var.clone();
-                    }
-                    None => {
-                        // dbg!(&arg);
-                        return arg.clone();
+    fn canonicalize_instruction(&self, instr: &Code) -> Option<LVNValue> {
+        let canonical_val: Option<LVNValue>;
+        match instr {
+            Code::Instruction(Instruction::Constant { value, .. }) => {
+                canonical_val = Some(LVNValue::Constant(value.clone()));
+            }
+            Code::Instruction(Instruction::Value { args, op, .. })
+                if op == &ValueOps::Not || op == &ValueOps::Id =>
+            {
+                canonical_val = Some(LVNValue::ValueUnaryOp(
+                    op.clone(),
+                    *self.var2num.get(&args[0]).unwrap(),
+                ));
+            }
+            Code::Instruction(Instruction::Value { args, op, .. })
+                if op != &ValueOps::Not && op != &ValueOps::Id && op != &ValueOps::Call =>
+            {
+                let mut arg_val0 = *self.var2num.get(&args[0]).unwrap();
+                let mut arg_val1 = *self.var2num.get(&args[1]).unwrap();
+                if op == &ValueOps::Add || op == &ValueOps::Mul {
+                    if arg_val0 > arg_val1 {
+                        let tmp = arg_val0.clone();
+                        arg_val0 = arg_val1;
+                        arg_val1 = tmp;
                     }
                 }
-                // let idx = self.env.get(&Some(arg.clone())).unwrap();
-                // let val = self.number_map.get(idx).unwrap();
-                // let (_, var) = self.table.get(val).unwrap();
-                // return var.clone();
-            })
-            .collect()
+                canonical_val = Some(LVNValue::ValueBinaryOp(op.clone(), arg_val0, arg_val1));
+            }
+            _ => {
+                canonical_val = None;
+            }
+        }
+        return canonical_val;
     }
 
-    fn insert_table(&mut self, canonical_val: &LVNValue, dest: &String) -> usize {
-        let lvn_num = self.table.len();
-        self.table
-            .insert(canonical_val.clone(), (lvn_num, dest.clone()));
-        self.number_map.insert(lvn_num, canonical_val.clone());
-        lvn_num
-    }
+    fn generate_copy_instruction(&mut self, value_number: &usize, instr: &Code) -> Code {
+        if let Code::Instruction(Instruction::Value { dest, op_type, .. })
+        | Code::Instruction(Instruction::Constant {
+            dest,
+            const_type: op_type,
+            ..
+        }) = instr
+        {
+            self.var2num.insert(dest.clone(), *value_number);
 
-    fn check_dest(dest: &String, i: usize, block: &BasicBlock) -> String {
-        if Self::will_be_overwritten(&dest, i, block) {
-            dest.clone() + "_" + &i.to_string()
+            let var = self.num2var.get(&value_number).unwrap().clone();
+            return Code::Instruction(Instruction::Value {
+                args: vec![var],
+                dest: dest.clone(),
+                funcs: vec![],
+                labels: vec![],
+                op: ValueOps::Id,
+                pos: None,
+                op_type: op_type.clone(),
+            });
         } else {
-            dest.clone()
+            panic!(
+                "Expected a Code::Instruction(Instruction::Value) | Code::Instruction(Instruction::Constant) and received: {}",
+                instr
+            );
         }
     }
 
-    pub fn process_instr(&mut self, i: usize, instr: &Code, block: &BasicBlock) -> Code {
-        // dbg!(instr);
-        let canonical_val: LVNValue;
-        let lvn_num: usize;
-        let ret: Code;
-        let new_dest: String;
+    fn replace_args(&self, args: &Vec<String>) -> Vec<String> {
+        return args
+            .iter()
+            .map(|arg| {
+                let num = self.var2num.get(arg).unwrap();
+                let var = self.num2var.get(num).unwrap();
+                var.clone()
+            })
+            .collect();
+    }
+
+    fn generate_optimized_instruction(&self, instr: &Code, dest: Option<String>) -> Code {
         match instr {
+            Code::Label { .. } => return instr.clone(),
             Code::Instruction(Instruction::Constant {
-                dest,
                 op,
                 pos,
                 const_type,
                 value,
+                ..
             }) => {
-                canonical_val = LVNValue::Constant(value.clone());
-                // dbg!(&canonical_val);
-                match self.table.get(&canonical_val) {
-                    Some((idx, var)) => {
-                        lvn_num = idx.clone();
-                        new_dest = Self::check_dest(dest, i, block);
-                        ret = Code::Instruction(Instruction::Value {
-                            args: vec![var.clone()],
-                            dest: new_dest.clone(),
-                            funcs: vec![],
-                            labels: vec![],
-                            op: ValueOps::Id,
-                            pos: None,
-                            op_type: const_type.clone(),
-                        });
-                    }
-                    None => {
-                        new_dest = Self::check_dest(dest, i, block);
-                        lvn_num = self.insert_table(&canonical_val, &new_dest);
-                        ret = Code::Instruction(Instruction::Constant {
-                            dest: new_dest.clone(),
-                            op: op.clone(),
-                            pos: pos.clone(),
-                            const_type: const_type.clone(),
-                            value: value.clone(),
-                        });
-                    }
-                }
-                self.env.insert(Some(new_dest.clone()), lvn_num);
+                return Code::Instruction(Instruction::Constant {
+                    dest: dest.unwrap(),
+                    op: op.clone(),
+                    pos: pos.clone(),
+                    const_type: const_type.clone(),
+                    value: value.clone(),
+                });
             }
             Code::Instruction(Instruction::Value {
                 args,
-                dest,
                 funcs,
                 labels,
                 op,
                 pos,
                 op_type,
+                ..
             }) => {
-                let arg0 = self.env.get(&args.get(0).cloned()).cloned();
-                let arg1 = self.env.get(&args.get(1).cloned()).cloned();
-                match (arg0, arg1) {
-                    (Some(num1), Some(num2)) => {
-                        canonical_val = LVNValue::ValueOp(
-                            OpType::Value(op.clone()),
-                            Some(std::cmp::min(num1, num2)),
-                            Some(std::cmp::max(num1, num2)),
-                        );
-                    }
-                    (Some(num), None) | (None, Some(num)) => {
-                        canonical_val =
-                            LVNValue::ValueOp(OpType::Value(op.clone()), Some(num), None);
-                    }
-                    (None, None) => {
-                        canonical_val = LVNValue::ValueOp(OpType::Value(op.clone()), None, None);
-                    }
-                }
-                // dbg!(&canonical_val);
-
-                match self.table.get(&canonical_val) {
-                    Some((idx, var)) => {
-                        lvn_num = idx.clone();
-                        new_dest = Self::check_dest(dest, i, block);
-                        ret = Code::Instruction(Instruction::Value {
-                            args: vec![var.clone()],
-                            dest: new_dest.clone(),
-                            funcs: vec![],
-                            labels: vec![],
-                            op: ValueOps::Id,
-                            pos: None,
-                            op_type: op_type.clone(),
-                        });
-                    }
-                    None => {
-                        new_dest = Self::check_dest(dest, i, block);
-                        lvn_num = self.insert_table(&canonical_val, &new_dest);
-                        ret = Code::Instruction(Instruction::Value {
-                            args: self.replace_args(args, i, block),
-                            dest: new_dest.clone(),
-                            funcs: funcs.clone(),
-                            labels: labels.clone(),
-                            op: op.clone(),
-                            pos: pos.clone(),
-                            op_type: op_type.clone(),
-                        });
-                    }
-                }
-                self.env.insert(Some(new_dest.clone()), lvn_num);
+                return Code::Instruction(Instruction::Value {
+                    args: self.replace_args(args),
+                    dest: dest.unwrap(),
+                    funcs: funcs.clone(),
+                    labels: labels.clone(),
+                    op: op.clone(),
+                    pos: pos.clone(),
+                    op_type: op_type.clone(),
+                });
             }
             Code::Instruction(Instruction::Effect {
                 args,
@@ -196,23 +213,49 @@ impl LVN {
                 op,
                 pos,
             }) => {
-                ret = Code::Instruction(Instruction::Effect {
-                    args: self.replace_args(args, i, block),
+                return Code::Instruction(Instruction::Effect {
+                    args: self.replace_args(args),
                     funcs: funcs.clone(),
                     labels: labels.clone(),
                     op: op.clone(),
                     pos: pos.clone(),
-                });
+                })
             }
-            Code::Label { label, pos } => {
-                ret = Code::Label {
-                    label: label.clone(),
-                    pos: pos.clone(),
+        }
+    }
+
+    pub fn optimize_instruction(&mut self, instr: &Code, last_write: bool) -> Code {
+        // Get canonical value of instruction (if instruction is a value instruction)
+        let canonical_val = self.canonicalize_instruction(instr);
+
+        let mut new_dest: Option<String> = None;
+        if let Some(canonical_val) = canonical_val {
+            // Copy propagation
+            if let LVNValue::ValueUnaryOp(ValueOps::Id, val_num) = canonical_val {
+                // Emit copy instruction: dest = instr.dest, args = [num2var[var2num[arg]]]
+                return self.generate_copy_instruction(&val_num, instr);
+            }
+
+            // Check if value has been seen already
+            if let Some(val_num) = self.val2num.get(&canonical_val).cloned() {
+                // Emit copy instruction: dest = instr.dest, args = [num2var[val2num[canonical_val]]]
+                return self.generate_copy_instruction(&val_num, instr);
+            } else {
+                // Register value: num = extend_env(dest), val2num.insert(canonical_val, num)
+                if let Code::Instruction(Instruction::Constant { dest, .. })
+                | Code::Instruction(Instruction::Value { dest, .. }) = instr
+                {
+                    let val_num = self.extend_env(dest);
+                    self.val2num.insert(canonical_val, val_num);
+                    new_dest = Some(self.register_var(&dest, val_num, last_write));
+                } else {
+                    panic!("Expected a Code::Instruction(Instruction::Constant) | Code::Instruction(Instruction::Value) and received: {}", instr);
                 }
             }
         }
-        // dbg!(&self.table, &self.env, &ret);
-        // println!("\n\n");
+
+        // Replace args in instruction
+        let ret = self.generate_optimized_instruction(instr, new_dest);
         return ret;
     }
 }

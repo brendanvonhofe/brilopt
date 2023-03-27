@@ -1,1 +1,1 @@
-command = "bril2json < {filename} | cargo run opt"
+command = "bril2json < {filename} | ../../target/debug/brilopt opt"

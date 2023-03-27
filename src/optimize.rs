@@ -91,12 +91,17 @@ pub fn dead_store_elim(b: &BasicBlock) -> BasicBlock {
     return last;
 }
 
-pub fn local_value_numbering(block: &BasicBlock) -> BasicBlock {
+pub fn lvn_block(block: &BasicBlock) -> BasicBlock {
     let mut lvn = LVN::new();
+
+    for variable in lvn.read_first(block) {
+        let num = lvn.extend_env(&variable);
+        lvn.register_var(&variable, num, true);
+    }
 
     return block
         .iter()
-        .enumerate()
-        .map(|(i, instr)| -> Code { lvn.process_instr(i, instr, block) })
+        .zip(LVN::last_writes(block).iter())
+        .map(|(instr, last_write)| -> Code { lvn.optimize_instruction(instr, *last_write) })
         .collect();
 }
