@@ -135,17 +135,8 @@ impl LVN {
                         self.num2const.insert(val_num, val);
                     }
                 } else if arg_num0 == arg_num1 {
-                    match op {
-                        ValueOps::Eq => {
-                            self.num2const.insert(val_num, Literal::Bool(true));
-                        }
-                        ValueOps::Le => {
-                            self.num2const.insert(val_num, Literal::Bool(true));
-                        }
-                        ValueOps::Ge => {
-                            self.num2const.insert(val_num, Literal::Bool(true));
-                        }
-                        _ => {}
+                    if let ValueOps::Eq | ValueOps::Le | ValueOps::Ge = op {
+                        self.num2const.insert(val_num, Literal::Bool(true));
                     }
                 } else if let (ValueOps::Or, Some(&Literal::Bool(true)), _)
                 | (ValueOps::Or, _, Some(&Literal::Bool(true))) = (
