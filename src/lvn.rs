@@ -147,6 +147,20 @@ impl LVN {
                         }
                         _ => {}
                     }
+                } else if let (ValueOps::Or, Some(&Literal::Bool(true)), _)
+                | (ValueOps::Or, _, Some(&Literal::Bool(true))) = (
+                    op,
+                    self.num2const.get(&arg_num0),
+                    self.num2const.get(&arg_num1),
+                ) {
+                    self.num2const.insert(val_num, Literal::Bool(true));
+                } else if let (ValueOps::And, Some(&Literal::Bool(false)), _)
+                | (ValueOps::And, _, Some(&Literal::Bool(false))) = (
+                    op,
+                    self.num2const.get(&arg_num0),
+                    self.num2const.get(&arg_num1),
+                ) {
+                    self.num2const.insert(val_num, Literal::Bool(false));
                 }
             }
             LVNValue::ValueUnaryOp(op, arg_num) => {

@@ -9,8 +9,10 @@
 }
 
 [optimized] @main {
-  mul1: int = const 0;
-  add1: int = const 4;
+  v1: int = const 4;
+  lvn.1: int = const 0;
+  mul1: int = mul v1 lvn.1;
+  add1: int = add v1 lvn.1;
   print mul1;
   print add1;
 }

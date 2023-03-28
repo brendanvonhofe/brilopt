@@ -80,6 +80,38 @@ fn main() {
 
             println!("[original] {}\n[folded] {}", &prog, &opt_prog);
         }
+        "foldopt" => {
+            let prog = load_program();
+
+            let mut opt_prog = prog.clone();
+            opt_prog.functions = opt_prog
+                .functions
+                .iter()
+                .map(|func| Function {
+                    args: func.args.clone(),
+                    instrs: basic_blocks(&func)
+                        .iter()
+                        .flat_map(|block| lvn_block(block, true))
+                        .collect(),
+                    name: func.name.clone(),
+                    pos: func.pos.clone(),
+                    return_type: func.return_type.clone(),
+                })
+                .map(|func| dead_variable_elim(&func))
+                .map(|func| Function {
+                    args: func.args.clone(),
+                    instrs: basic_blocks(&func)
+                        .iter()
+                        .flat_map(|block| dead_store_elim(block))
+                        .collect(),
+                    name: func.name.clone(),
+                    pos: func.pos.clone(),
+                    return_type: func.return_type.clone(),
+                })
+                .collect();
+
+            println!("[original] {}\n[optimized] {}", &prog, &opt_prog);
+        }
         _ => {
             println!("[DEBUG MODE] Reading program from {}\n", DEBUG_FILEPATH);
             let debug_file = File::open(DEBUG_FILEPATH).unwrap();
