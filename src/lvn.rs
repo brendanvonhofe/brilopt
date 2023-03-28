@@ -128,9 +128,9 @@ impl LVN {
                 self.num2const.insert(val_num, value.clone());
             }
             LVNValue::ValueBinaryOp(op, arg_num0, arg_num1) => {
-                if let (Some(arg_val0), Some(arg_val1)) =
-                    (self.num2const.get(&arg_num0), self.num2const.get(&arg_num1))
-                {
+                let (arg_opt0, arg_opt1) =
+                    (self.num2const.get(&arg_num0), self.num2const.get(&arg_num1));
+                if let (Some(arg_val0), Some(arg_val1)) = (arg_opt0, arg_opt1) {
                     if let Some(val) = Self::calculate_binary_op(op, arg_val0, arg_val1) {
                         self.num2const.insert(val_num, val);
                     }
@@ -139,18 +139,13 @@ impl LVN {
                         self.num2const.insert(val_num, Literal::Bool(true));
                     }
                 } else if let (ValueOps::Or, Some(&Literal::Bool(true)), _)
-                | (ValueOps::Or, _, Some(&Literal::Bool(true))) = (
-                    op,
-                    self.num2const.get(&arg_num0),
-                    self.num2const.get(&arg_num1),
-                ) {
+                | (ValueOps::Or, _, Some(&Literal::Bool(true))) = (op, arg_opt0, arg_opt1)
+                {
                     self.num2const.insert(val_num, Literal::Bool(true));
                 } else if let (ValueOps::And, Some(&Literal::Bool(false)), _)
-                | (ValueOps::And, _, Some(&Literal::Bool(false))) = (
-                    op,
-                    self.num2const.get(&arg_num0),
-                    self.num2const.get(&arg_num1),
-                ) {
+                | (ValueOps::And, _, Some(&Literal::Bool(false))) =
+                    (op, arg_opt0, arg_opt1)
+                {
                     self.num2const.insert(val_num, Literal::Bool(false));
                 }
             }
