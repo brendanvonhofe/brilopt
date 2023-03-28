@@ -91,12 +91,12 @@ pub fn dead_store_elim(b: &BasicBlock) -> BasicBlock {
     return last;
 }
 
-pub fn lvn_block(block: &BasicBlock) -> BasicBlock {
-    let mut lvn = LVN::new();
+pub fn lvn_block(block: &BasicBlock, folding: bool) -> BasicBlock {
+    let mut lvn = LVN::new(folding);
 
     for variable in lvn.read_first(block) {
-        let num = lvn.extend_env(&variable);
-        lvn.register_var(&variable, num, true);
+        let num = lvn.register_var(&variable);
+        lvn.register_dest(&variable, num, true);
     }
 
     return block
