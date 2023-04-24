@@ -1,0 +1,29 @@
+entry:
+  in:  
+  out: 
+zerocase:
+  in:  
+  out: iszero_zerocase_3 out_zerocase_1 zero_zerocase_2
+onecase:
+  in:  iszero_zerocase_3 out_zerocase_1 zero_zerocase_2
+  out: isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_onecase_1 zero_zerocase_2
+body:
+  in:  isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_onecase_1 zero_zerocase_2
+  out: fibone_body_4 fibtwo_body_5 isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_body_6 two_body_1 xmone_body_2 xmtwo_body_3 zero_zerocase_2
+ret:
+  in:  fibone_body_4 fibtwo_body_5 isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_body_6 out_onecase_1 out_zerocase_1 two_body_1 xmone_body_2 xmtwo_body_3 zero_zerocase_2
+  out: fibone_body_4 fibtwo_body_5 isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_body_6 out_onecase_1 out_zerocase_1 two_body_1 xmone_body_2 xmtwo_body_3 zero_zerocase_2
+exit:
+  in:  fibone_body_4 fibtwo_body_5 isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_body_6 out_onecase_1 out_zerocase_1 two_body_1 xmone_body_2 xmtwo_body_3 zero_zerocase_2
+  out: fibone_body_4 fibtwo_body_5 isone_onecase_3 iszero_zerocase_3 one_onecase_2 out_body_6 out_onecase_1 out_zerocase_1 two_body_1 xmone_body_2 xmtwo_body_3 zero_zerocase_2
+
+entry:
+  in:  
+  out: 
+main1:
+  in:  
+  out: fibfive_main1_1 five_main1_0
+exit:
+  in:  fibfive_main1_1 five_main1_0
+  out: fibfive_main1_1 five_main1_0
+

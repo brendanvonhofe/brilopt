@@ -3,12 +3,13 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
+    dataflow::reaching_definitions,
     optimize::{dead_store_elim, dead_variable_elim, lvn_block},
-    parse::basic_blocks,
+    parse::{basic_blocks, expanded_basic_blocks, get_block_name},
     util::graphviz,
 };
 
-const DEBUG_FILEPATH: &str = "/Users/bvonhofe/Desktop/bril/bril-rs/brilopt/test/opt/commute.json";
+const DEBUG_FILEPATH: &str = "/Users/bvonhofe/Desktop/bril/bril-rs/brilopt/test/fib2seven.json";
 
 fn main() {
     let mut args = std::env::args();
@@ -112,39 +113,49 @@ fn main() {
 
             println!("[original] {}\n[optimized] {}", &prog, &opt_prog);
         }
+        "reach" => {
+            let prog = load_program();
+
+            for func in prog.functions.iter() {
+                let reaching = reaching_definitions(func);
+                for (i, b) in expanded_basic_blocks(func).iter().enumerate() {
+                    let block = get_block_name(&b, i, &func.name);
+                    let (inputs, outputs) = &reaching[&block];
+
+                    let mut inputs_str = inputs
+                        .iter()
+                        .map(|def| {
+                            def.name.clone() + "_" + &def.block + "_" + &def.line.to_string()
+                        })
+                        .collect::<Vec<String>>();
+                    inputs_str.sort();
+
+                    let mut outputs_str = outputs
+                        .iter()
+                        .map(|def| {
+                            def.name.clone() + "_" + &def.block + "_" + &def.line.to_string()
+                        })
+                        .collect::<Vec<String>>();
+                    outputs_str.sort();
+
+                    println!(
+                        "{}:\n  in:  {}\n  out: {}",
+                        block,
+                        inputs_str.join(" "),
+                        outputs_str.join(" ")
+                    );
+                }
+                println!("");
+            }
+        }
         _ => {
             println!("[DEBUG MODE] Reading program from {}\n", DEBUG_FILEPATH);
             let debug_file = File::open(DEBUG_FILEPATH).unwrap();
             let prog = load_program_from_read(debug_file);
 
-            let mut opt_prog = prog.clone();
-            opt_prog.functions = opt_prog
-                .functions
-                .iter()
-                .map(|func| Function {
-                    args: func.args.clone(),
-                    instrs: basic_blocks(&func)
-                        .iter()
-                        .flat_map(|block| lvn_block(block, false))
-                        .collect(),
-                    name: func.name.clone(),
-                    pos: func.pos.clone(),
-                    return_type: func.return_type.clone(),
-                })
-                .map(|func| dead_variable_elim(&func))
-                .map(|func| Function {
-                    args: func.args.clone(),
-                    instrs: basic_blocks(&func)
-                        .iter()
-                        .flat_map(|block| dead_store_elim(block))
-                        .collect(),
-                    name: func.name.clone(),
-                    pos: func.pos.clone(),
-                    return_type: func.return_type.clone(),
-                })
-                .collect();
-
-            println!("[original] {}\n[optimized] {}", &prog, &opt_prog);
+            for func in prog.functions.iter() {
+                println!("{:?}", reaching_definitions(func));
+            }
         }
     }
 }

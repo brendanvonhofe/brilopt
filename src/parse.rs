@@ -39,24 +39,50 @@ pub fn basic_blocks(func: &Function) -> Vec<BasicBlock> {
     blocks
 }
 
-pub fn control_flow_graph(func: &Function) -> ControlFlowGraph {
-    let mut cfg = ControlFlowGraph::new();
-    let blocks = basic_blocks(&func);
+pub fn get_block_name(block: &BasicBlock, block_idx: usize, func_name: &String) -> String {
+    let from: String;
+    if let Code::Label { label, .. } = &block[0] {
+        from = label.clone();
+    } else {
+        from = func_name.clone() + &block_idx.to_string()
+    }
+    from
+}
 
-    let get_block_name = |block: &BasicBlock, block_idx: usize| -> String {
-        let from: String;
-        if let Code::Label { label, .. } = &block[0] {
-            from = label.clone();
-        } else {
-            from = func.name.clone() + &block_idx.to_string()
-        }
-        from
-    };
+pub fn expanded_basic_blocks(func: &Function) -> Vec<BasicBlock> {
+    let mut blocks = basic_blocks(func);
+    blocks.insert(
+        0,
+        vec![Code::Label {
+            label: String::from("entry"),
+            pos: None,
+        }],
+    );
+    blocks.push(vec![Code::Label {
+        label: String::from("exit"),
+        pos: None,
+    }]);
+    blocks
+}
+
+pub fn block_name_to_idx(func: &Function) -> HashMap<String, usize> {
+    expanded_basic_blocks(func)
+        .iter()
+        .enumerate()
+        .map(|(idx, block)| (get_block_name(block, idx, &func.name), idx))
+        .collect()
+}
+
+pub fn control_flow_graph(func: &Function) -> ControlFlowGraph {
+    let fname = &func.name;
+    let mut cfg = ControlFlowGraph::new();
+    let blocks = expanded_basic_blocks(&func);
+    assert!(blocks.len() > 0);
 
     for i in 0..blocks.len() - 1 {
         let block = &blocks[i];
         let last = &block[block.len() - 1];
-        let from = get_block_name(block, i);
+        let from = get_block_name(block, i, fname);
 
         match &last {
             Code::Instruction(instr) => match &instr {
@@ -68,16 +94,16 @@ pub fn control_flow_graph(func: &Function) -> ControlFlowGraph {
                 }
                 _ => {
                     // Successor is just the next block
-                    cfg.insert(from, vec![get_block_name(&blocks[i + 1], i + 1)]);
+                    cfg.insert(from, vec![get_block_name(&blocks[i + 1], i + 1, fname)]);
                 }
             },
             Code::Label { .. } => {
-                panic!("Last intruction in basic block is a label!");
+                cfg.insert(from, vec![get_block_name(&blocks[i + 1], i + 1, fname)]);
             }
         }
     }
     cfg.insert(
-        get_block_name(&blocks[blocks.len() - 1], blocks.len() - 1),
+        get_block_name(&blocks[blocks.len() - 1], blocks.len() - 1, fname),
         vec![],
     );
 
