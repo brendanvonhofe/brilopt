@@ -1,0 +1,27 @@
+# ARGS: dom
+@fib(x: int): int {
+.zerocase:
+  out: int = const 0;
+  zero: int = const 0;
+  iszero: bool = eq x zero;
+  br iszero .ret .onecase;
+.onecase:
+  out: int = const 1;
+  one: int = const 1;
+  isone: bool = eq x one;
+  br isone .ret .body;
+.body:
+  two: int = const 2;
+  xmone: int = sub x one;
+  xmtwo: int = sub x two;
+  fibone: int = call @fib xmone;
+  fibtwo: int = call @fib xmtwo;
+  out: int = add fibone fibtwo;
+.ret:
+  ret out;
+}
+@main {
+  five: int = const 7;
+  fibfive: int = call @fib five;
+  print fibfive;
+}

@@ -1,0 +1,13 @@
+fib
+  entry: ["entry"]
+  zerocase: ["entry", "zerocase"]
+  onecase: ["entry", "zerocase", "onecase"]
+  body: ["entry", "zerocase", "onecase", "body"]
+  ret: ["entry", "zerocase", "ret"]
+  exit: ["entry", "zerocase", "ret", "exit"]
+
+main
+  entry: ["entry"]
+  main1: ["entry", "main1"]
+  exit: ["entry", "main1", "exit"]
+

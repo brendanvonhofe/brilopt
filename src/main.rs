@@ -3,9 +3,9 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    dataflow::reaching_definitions,
+    dataflow::{dominators, reaching_definitions},
     optimize::{dead_store_elim, dead_variable_elim, lvn_block},
-    parse::{basic_blocks, expanded_basic_blocks, get_block_name},
+    parse::{basic_blocks, block_name_to_idx, expanded_basic_blocks, get_block_name},
     util::graphviz,
 };
 
@@ -144,6 +144,25 @@ fn main() {
                         inputs_str.join(" "),
                         outputs_str.join(" ")
                     );
+                }
+                println!("");
+            }
+        }
+        "dom" => {
+            let prog = load_program();
+
+            for func in prog.functions.iter() {
+                let name2idx = block_name_to_idx(func);
+
+                println!("{}", &func.name);
+                let dom_map = dominators(func);
+                let mut blocks: Vec<String> = dom_map.keys().cloned().collect();
+                blocks.sort_by(|a, b| name2idx[a].cmp(&name2idx[b]));
+
+                for block in blocks.iter() {
+                    let mut doms: Vec<String> = dom_map[block].clone().into_iter().collect();
+                    doms.sort_by(|a, b| name2idx[a].cmp(&name2idx[b]));
+                    println!("  {}: {:?}", block, doms);
                 }
                 println!("");
             }

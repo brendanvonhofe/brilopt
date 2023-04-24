@@ -106,3 +106,43 @@ pub fn reaching_definitions(func: &Function) -> DataFlowAnalysis {
         })
         .collect()
 }
+
+pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
+    let successors = control_flow_graph(func);
+    let predecessors = invert_digraph(&successors);
+    let block_names_to_idx: HashMap<String, usize> = block_name_to_idx(func);
+    let block_names: Vec<String> = block_names_to_idx.keys().cloned().collect();
+
+    let mut last_dom: HashMap<String, HashSet<String>> = HashMap::new();
+
+    loop {
+        let mut dominators: HashMap<String, HashSet<String>> = last_dom.clone();
+
+        for block in block_names.iter() {
+            // intersection of dominator sets of predecessor blocks
+            let predecessor_doms: Option<HashSet<String>> = dominators
+                .iter()
+                .filter(|(vertex, _)| match predecessors.get(block) {
+                    Some(vertices) => return vertices.contains(vertex),
+                    None => return false,
+                })
+                .map(|(_, dom_set)| dom_set)
+                .cloned()
+                .reduce(|acc, e| acc.intersection(&e).cloned().collect());
+
+            let mut update_set: HashSet<String> = HashSet::new();
+            update_set.insert(block.clone());
+            if let Some(doms) = predecessor_doms {
+                update_set = update_set.union(&doms).cloned().collect();
+            }
+            dominators.insert(block.clone(), update_set);
+        }
+
+        if dominators == last_dom {
+            break;
+        }
+        last_dom = dominators;
+    }
+
+    return last_dom;
+}
