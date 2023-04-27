@@ -3,7 +3,7 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    dataflow::{dominators, reaching_definitions},
+    analyze::{dominators, reaching_definitions},
     optimize::{dead_store_elim, dead_variable_elim, lvn_block},
     parse::{basic_blocks, block_name_to_idx, expanded_basic_blocks, get_block_name},
     util::graphviz,

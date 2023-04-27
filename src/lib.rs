@@ -1,4 +1,4 @@
-pub mod dataflow;
+pub mod analyze;
 pub mod lvn;
 pub mod optimize;
 pub mod parse;

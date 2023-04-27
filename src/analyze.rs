@@ -107,19 +107,42 @@ pub fn reaching_definitions(func: &Function) -> DataFlowAnalysis {
         .collect()
 }
 
+// e.g. postorder_traversal(&control_flow_graph(func), "entry", vec![]);
+fn postorder_traversal(
+    graph: &ControlFlowGraph,
+    cur_block: String,
+    postorder: Vec<String>,
+) -> Vec<String> {
+    let mut new_postorder = vec![];
+    for child_block in graph[&cur_block].iter() {
+        for block in postorder_traversal(graph, child_block.clone(), postorder.clone()) {
+            if !new_postorder.contains(&block) {
+                new_postorder.push(block);
+            }
+        }
+    }
+    if !new_postorder.contains(&cur_block) {
+        new_postorder.push(cur_block.clone());
+    }
+    return new_postorder;
+}
+
+// maps each block to its set of dominators
 pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
     let successors = control_flow_graph(func);
     let predecessors = invert_digraph(&successors);
-    let block_names_to_idx: HashMap<String, usize> = block_name_to_idx(func);
-    let block_names: Vec<String> = block_names_to_idx.keys().cloned().collect();
+    let block_names: Vec<String> = postorder_traversal(&successors, String::from("entry"), vec![])
+        .into_iter()
+        .rev()
+        .collect(); // iterating through blocks in reverse post-order, this algorithm runs in linear time
 
     let mut last_dom: HashMap<String, HashSet<String>> = HashMap::new();
-
     loop {
         let mut dominators: HashMap<String, HashSet<String>> = last_dom.clone();
 
         for block in block_names.iter() {
-            // intersection of dominator sets of predecessor blocks
+            // intersection of dominators of predecessors
+            // ∩ { dominators(b) for b in predecessors(block) }
             let predecessor_doms: Option<HashSet<String>> = dominators
                 .iter()
                 .filter(|(vertex, _)| match predecessors.get(block) {
