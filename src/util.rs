@@ -26,6 +26,23 @@ pub fn graphviz(func: &Function) -> Result<String, Box<dyn Error>> {
     return Ok(s);
 }
 
+pub fn invert_digraph(graph: &ControlFlowGraph) -> ControlFlowGraph {
+    graph
+        .keys()
+        .map(|node| {
+            (
+                node.clone(),
+                graph.keys().fold(vec![], |mut acc, key| {
+                    if graph[key].contains(node) {
+                        acc.push(key.clone());
+                    }
+                    return acc;
+                }),
+            )
+        })
+        .collect()
+}
+
 // e.g. postorder_traversal(&control_flow_graph(func), "entry", vec![]);
 pub fn postorder_traversal(
     graph: &ControlFlowGraph,

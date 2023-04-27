@@ -6,8 +6,8 @@ use std::{
 use bril_rs::{Code, Function, Instruction};
 
 use crate::{
-    parse::{block_name_to_idx, control_flow_graph, expanded_basic_blocks, ControlFlowGraph},
-    util::postorder_traversal,
+    parse::{block_name_to_idx, control_flow_graph, expanded_basic_blocks},
+    util::{invert_digraph, postorder_traversal},
 };
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -19,24 +19,6 @@ pub struct Definition {
 
 // maps block name to in/out sets for that block
 pub type DataFlowAnalysis = HashMap<String, (HashSet<Definition>, HashSet<Definition>)>;
-
-fn invert_digraph(g: &ControlFlowGraph) -> ControlFlowGraph {
-    let mut inv: ControlFlowGraph = HashMap::new();
-
-    for node in g.keys() {
-        inv.insert(
-            node.clone(),
-            g.keys().fold(vec![], |mut acc, key| {
-                if g[key].contains(node) {
-                    acc.push(key.clone());
-                }
-                return acc;
-            }),
-        );
-    }
-
-    inv
-}
 
 pub fn reaching_definitions(func: &Function) -> DataFlowAnalysis {
     let successors = control_flow_graph(func);
