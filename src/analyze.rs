@@ -5,8 +5,9 @@ use std::{
 
 use bril_rs::{Code, Function, Instruction};
 
-use crate::parse::{
-    block_name_to_idx, control_flow_graph, expanded_basic_blocks, ControlFlowGraph,
+use crate::{
+    parse::{block_name_to_idx, control_flow_graph, expanded_basic_blocks, ControlFlowGraph},
+    util::postorder_traversal,
 };
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -105,26 +106,6 @@ pub fn reaching_definitions(func: &Function) -> DataFlowAnalysis {
             )
         })
         .collect()
-}
-
-// e.g. postorder_traversal(&control_flow_graph(func), "entry", vec![]);
-fn postorder_traversal(
-    graph: &ControlFlowGraph,
-    cur_block: String,
-    postorder: Vec<String>,
-) -> Vec<String> {
-    let mut new_postorder = vec![];
-    for child_block in graph[&cur_block].iter() {
-        for block in postorder_traversal(graph, child_block.clone(), postorder.clone()) {
-            if !new_postorder.contains(&block) {
-                new_postorder.push(block);
-            }
-        }
-    }
-    if !new_postorder.contains(&cur_block) {
-        new_postorder.push(cur_block.clone());
-    }
-    return new_postorder;
 }
 
 // maps each block to its set of dominators

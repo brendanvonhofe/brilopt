@@ -3,7 +3,7 @@ use std::fmt::Write;
 
 use bril_rs::Function;
 
-use crate::parse::control_flow_graph;
+use crate::parse::{control_flow_graph, ControlFlowGraph};
 
 pub fn graphviz(func: &Function) -> Result<String, Box<dyn Error>> {
     let mut s = String::new();
@@ -24,4 +24,24 @@ pub fn graphviz(func: &Function) -> Result<String, Box<dyn Error>> {
     }
     write!(s, "}}")?;
     return Ok(s);
+}
+
+// e.g. postorder_traversal(&control_flow_graph(func), "entry", vec![]);
+pub fn postorder_traversal(
+    graph: &ControlFlowGraph,
+    cur_block: String,
+    postorder: Vec<String>,
+) -> Vec<String> {
+    let mut new_postorder = vec![];
+    for child_block in graph[&cur_block].iter() {
+        for block in postorder_traversal(graph, child_block.clone(), postorder.clone()) {
+            if !new_postorder.contains(&block) {
+                new_postorder.push(block);
+            }
+        }
+    }
+    if !new_postorder.contains(&cur_block) {
+        new_postorder.push(cur_block.clone());
+    }
+    return new_postorder;
 }
