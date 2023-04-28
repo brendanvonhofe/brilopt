@@ -32,12 +32,11 @@ pub fn invert_digraph(graph: &ControlFlowGraph) -> ControlFlowGraph {
         .map(|node| {
             (
                 node.clone(),
-                graph.keys().fold(vec![], |mut acc, key| {
-                    if graph[key].contains(node) {
-                        acc.push(key.clone());
-                    }
-                    return acc;
-                }),
+                graph
+                    .keys()
+                    .cloned()
+                    .filter(|key| graph[key].contains(node))
+                    .collect(),
             )
         })
         .collect()
