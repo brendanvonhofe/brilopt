@@ -1,24 +1,21 @@
-use std::error::Error;
 use std::fmt::Write;
+use std::{collections::HashMap, error::Error};
 
-use bril_rs::Function;
+type DiGraph = HashMap<String, Vec<String>>;
 
-use crate::parse::{control_flow_graph, ControlFlowGraph};
-
-pub fn graphviz(func: &Function) -> Result<String, Box<dyn Error>> {
+pub fn graphviz(digraph: &DiGraph, name: &String) -> Result<String, Box<dyn Error>> {
     let mut s = String::new();
-    write!(s, "digraph {} {{\n", func.name)?;
-    let cfg = control_flow_graph(func);
+    write!(s, "digraph {} {{\n", name)?;
 
     // Sort to make output deterministic
-    let mut sorted_keys: Vec<&String> = cfg.keys().collect();
+    let mut sorted_keys: Vec<&String> = digraph.keys().collect();
     sorted_keys.sort();
 
     for &key in &sorted_keys {
         write!(s, "  {};\n", key)?;
     }
     for &key in &sorted_keys {
-        for succ in cfg[key].iter() {
+        for succ in digraph[key].iter() {
             write!(s, "  {key} -> {succ};\n")?;
         }
     }
@@ -26,7 +23,7 @@ pub fn graphviz(func: &Function) -> Result<String, Box<dyn Error>> {
     return Ok(s);
 }
 
-pub fn invert_digraph(graph: &ControlFlowGraph) -> ControlFlowGraph {
+pub fn invert_digraph(graph: &DiGraph) -> DiGraph {
     graph
         .keys()
         .map(|node| {
@@ -43,8 +40,9 @@ pub fn invert_digraph(graph: &ControlFlowGraph) -> ControlFlowGraph {
 }
 
 // e.g. postorder_traversal(&control_flow_graph(func), "entry", vec![]);
+// will panic if `cur_block` is not a key of `graph`
 pub fn postorder_traversal(
-    graph: &ControlFlowGraph,
+    graph: &DiGraph,
     cur_block: String,
     postorder: Vec<String>,
 ) -> Vec<String> {

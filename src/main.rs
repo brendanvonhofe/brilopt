@@ -3,9 +3,11 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    analyze::{dominators, reaching_definitions},
+    analyze::{dominator_tree, dominators, reaching_definitions},
     optimize::{dead_store_elim, dead_variable_elim, lvn_block},
-    parse::{basic_blocks, block_name_to_idx, expanded_basic_blocks, get_block_name},
+    parse::{
+        basic_blocks, block_name_to_idx, control_flow_graph, expanded_basic_blocks, get_block_name,
+    },
     util::graphviz,
 };
 
@@ -24,7 +26,23 @@ fn main() {
         "cfg" => {
             let prog = load_program();
             for func in prog.functions.iter() {
-                println!("{}", graphviz(&func).unwrap());
+                println!(
+                    "{}",
+                    graphviz(&control_flow_graph(func), &func.name).unwrap()
+                );
+                break;
+            }
+        }
+        "domtree" => {
+            for func in load_program().functions.iter() {
+                println!(
+                    "{}",
+                    graphviz(
+                        &dominator_tree(func),
+                        &format!("{}_dominator_tree", &func.name)
+                    )
+                    .unwrap()
+                );
                 break;
             }
         }

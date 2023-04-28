@@ -132,3 +132,25 @@ pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
 
     return last_dom;
 }
+
+pub fn dominator_tree(func: &Function) -> HashMap<String, Vec<String>> {
+    let predecessors = invert_digraph(&control_flow_graph(func));
+    let dominators = dominators(func);
+
+    dominators
+        .keys()
+        .map(|block| {
+            (
+                block.clone(),
+                predecessors
+                    .clone()
+                    .into_iter()
+                    .filter(|(node, parents)| {
+                        dominators[node].contains(block) && parents.contains(block)
+                    })
+                    .map(|(node, _)| node)
+                    .collect(),
+            )
+        })
+        .collect()
+}
