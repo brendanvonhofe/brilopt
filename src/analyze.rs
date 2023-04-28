@@ -133,6 +133,7 @@ pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
     return last_dom;
 }
 
+// nodes in tree dominate all descendants
 pub fn dominator_tree(func: &Function) -> HashMap<String, Vec<String>> {
     let predecessors = invert_digraph(&control_flow_graph(func));
     let dominators = dominators(func);

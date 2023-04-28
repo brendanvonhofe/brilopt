@@ -23,6 +23,9 @@ pub fn graphviz(digraph: &DiGraph, name: &String) -> Result<String, Box<dyn Erro
     return Ok(s);
 }
 
+// probably not correct nomenclature and algorithmically slow
+// reverses the direction of the edges of the graph
+// e.g. takes a graph that represents a "successor" relation and produces a graph that represents a "predecessor" relation
 pub fn invert_digraph(graph: &DiGraph) -> DiGraph {
     graph
         .keys()
