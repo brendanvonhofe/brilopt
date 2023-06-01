@@ -7,7 +7,7 @@ use bril_rs::{Code, Function, Instruction};
 
 use crate::{
     parse::{block_name_to_idx, control_flow_graph, expanded_basic_blocks},
-    util::{invert_digraph, postorder_traversal},
+    util::{invert_digraph, invert_hashset},
 };
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -94,12 +94,22 @@ pub fn reaching_definitions(func: &Function) -> DataFlowAnalysis {
 pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
     let successors = control_flow_graph(func);
     let predecessors = invert_digraph(&successors);
-    let block_names: Vec<String> = postorder_traversal(&successors, String::from("entry"), vec![])
-        .into_iter()
-        .rev()
-        .collect(); // iterating through blocks in reverse post-order, this algorithm runs in linear time
+    // let block_names: Vec<String> = postorder_traversal(&successors, String::from("entry"), vec![])
+    // .into_iter()
+    // .rev()
+    // .collect(); // iterating through blocks in reverse post-order, this algorithm runs in linear time
+    let block_names: Vec<String> = successors.keys().cloned().collect();
 
-    let mut last_dom: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut last_dom: HashMap<String, HashSet<String>> = block_names
+        .clone()
+        .iter()
+        .map(|b| {
+            (
+                b.clone(),
+                HashSet::from_iter(block_names.clone().into_iter()),
+            )
+        })
+        .collect();
     loop {
         let mut dominators: HashMap<String, HashSet<String>> = last_dom.clone();
 
@@ -131,6 +141,31 @@ pub fn dominators(func: &Function) -> HashMap<String, HashSet<String>> {
     }
 
     return last_dom;
+}
+
+pub fn dominance_frontier(func: &Function) -> HashMap<String, HashSet<String>> {
+    let successors = control_flow_graph(func);
+    let predecessors = invert_digraph(&successors);
+    let dom_map = invert_hashset(&dominators(func));
+
+    dom_map
+        .iter()
+        .map(|(dom, subs)| {
+            (
+                dom.clone(),
+                predecessors
+                    .clone()
+                    .into_iter()
+                    .filter(|(b, preds)| {
+                        preds.iter().fold(false, |dominated, predecessor| {
+                            (dominated || subs.contains(predecessor)) && !subs.contains(b)
+                        })
+                    })
+                    .map(|(b, _)| b)
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 // nodes in tree dominate all descendants

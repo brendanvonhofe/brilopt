@@ -3,7 +3,7 @@ use std::fs::File;
 use bril_rs::{load_program, load_program_from_read, Function};
 
 use brilopt::{
-    analyze::{dominator_tree, dominators, reaching_definitions},
+    analyze::{dominance_frontier, dominator_tree, dominators, reaching_definitions},
     optimize::{dead_store_elim, dead_variable_elim, lvn_block},
     parse::{
         basic_blocks, block_name_to_idx, control_flow_graph, expanded_basic_blocks, get_block_name,
@@ -174,6 +174,25 @@ fn main() {
 
                 println!("{}", &func.name);
                 let dom_map = dominators(func);
+                let mut blocks: Vec<String> = dom_map.keys().cloned().collect();
+                blocks.sort_by(|a, b| name2idx[a].cmp(&name2idx[b]));
+
+                for block in blocks.iter() {
+                    let mut doms: Vec<String> = dom_map[block].clone().into_iter().collect();
+                    doms.sort_by(|a, b| name2idx[a].cmp(&name2idx[b]));
+                    println!("  {}: {:?}", block, doms);
+                }
+                println!("");
+            }
+        }
+        "domfront" => {
+            let prog = load_program();
+
+            for func in prog.functions.iter() {
+                let name2idx = block_name_to_idx(func);
+
+                println!("{}", &func.name);
+                let dom_map = dominance_frontier(func);
                 let mut blocks: Vec<String> = dom_map.keys().cloned().collect();
                 blocks.sort_by(|a, b| name2idx[a].cmp(&name2idx[b]));
 
