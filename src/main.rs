@@ -8,10 +8,11 @@ use brilopt::{
     parse::{
         basic_blocks, block_name_to_idx, control_flow_graph, expanded_basic_blocks, get_block_name,
     },
+    ssa::convert_to_ssa,
     util::graphviz,
 };
 
-const DEBUG_FILEPATH: &str = "/Users/bvonhofe/Desktop/bril/bril-rs/brilopt/test/fib2seven.json";
+const DEBUG_FILEPATH: &str = "/Users/bvonhofe/Desktop/bril/bril-rs/brilopt/test/loop-orig.json";
 
 fn main() {
     let mut args = std::env::args();
@@ -22,6 +23,13 @@ fn main() {
         "main" => {
             let prog = load_program();
             println!("{}", &prog);
+        }
+        "ssa" => {
+            let prog = load_program();
+
+            for func in prog.functions.iter() {
+                println!("{}\n", convert_to_ssa(func));
+            }
         }
         "cfg" => {
             let prog = load_program();
@@ -210,7 +218,7 @@ fn main() {
             let prog = load_program_from_read(debug_file);
 
             for func in prog.functions.iter() {
-                println!("{:?}", reaching_definitions(func));
+                println!("{}\n", convert_to_ssa(func));
             }
         }
     }
